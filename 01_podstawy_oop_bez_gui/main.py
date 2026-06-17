@@ -10,12 +10,15 @@ class Tankowanie:
 
 class FlotaManager:
     def __init__(self):
+        # Lista przechowuje wszystkie tankowania
         self.tankowania = []
 
     def dodaj_tankowanie(self, tankowanie):
+        # Dodaje jedno tankowanie do listy
         self.tankowania.append(tankowanie)
 
     def pobierz_koszty_per_samochod(self):
+        # Słownik: rejestracja auta -> łączny koszt paliwa
         koszty = {}
 
         for tankowanie in self.tankowania:
