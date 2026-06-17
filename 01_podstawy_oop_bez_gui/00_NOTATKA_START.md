@@ -1,0 +1,9 @@
+class = tworzy klasę
+__init__ = konstruktor, czyli uruchamia się przy tworzeniu obiektu
+self = oznacza ten konkretny obiekt
+lista = przechowuje wiele rekordów
+append = dodaje element do listy
+for = przechodzi po elementach listy
+if = warunek
+return = zwraca wynik funkcji
+print = wyświetla wynik
