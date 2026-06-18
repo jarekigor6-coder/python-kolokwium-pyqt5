@@ -1,0 +1,2109 @@
+## 0. Procedura na kolokwium
+
+Po otrzymaniu polecenia najpierw robisz mapę:
+
+```text
+Nazwa aplikacji:
+Jeden rekord:
+Pola rekordu:
+Manager:
+Lista w managerze:
+Metoda dodawania:
+Metody obliczeniowe:
+Tabela:
+Wykres:
+JSON / Excel:
+Dodatkowe wymagania:
+```
+
+Przykład dla floty:
+
+```text
+Nazwa aplikacji: Panel Managera Floty Pojazdów
+Jeden rekord: Tankowanie
+Pola: id, rejestracja, data, stan_licznika, litry_paliwa, koszt_calkowity
+Manager: FlotaManager
+Lista: tankowania
+Dodawanie: dodaj_tankowanie(tankowanie)
+Wykres: rejestracja -> średnie spalanie l/100 km
+JSON: zapisz_baze, wczytaj_baze
+```
+
+Przykład dla pogody:
+
+```text
+Nazwa aplikacji: System Monitorowania Stacji Pogodowej
+Jeden rekord: OdczytPogodowy
+Pola: timestamp, miasto, temperatura, wilgotnosc, pm25
+Manager: BazaPogodowa
+Lista: odczyty
+Dodawanie: dodaj_odczyt(odczyt)
+Wykres: czas -> temperatura dla wybranego miasta
+JSON: zapis i odczyt listy odczytów
+```
+
+---
+
+## 1. Klasa danych – pierwszy krok
+
+Klasa danych opisuje **jeden rekord**.
+
+Schemat:
+
+```python
+class NazwaRekordu:
+    def __init__(self, pole1, pole2, pole3):
+        self.pole1 = pole1
+        self.pole2 = pole2
+        self.pole3 = pole3
+```
+
+### Co oznaczają linijki?
+
+```python
+class NazwaRekordu:
+```
+
+Tworzy nowy typ obiektu, np. `Tankowanie`, `Produkt`, `Lot`, `OdczytPogodowy`.
+
+```python
+def __init__(self, pole1, pole2, pole3):
+```
+
+Konstruktor. Uruchamia się przy tworzeniu nowego obiektu.
+
+```python
+self.pole1 = pole1
+```
+
+Zapisuje wartość do środka obiektu. Potem możesz użyć np. `obiekt.pole1`.
+
+### Przykład: flota
+
+```python
+class Tankowanie:
+    def __init__(self, id, rejestracja, data, stan_licznika, litry_paliwa, koszt_calkowity):
+        self.id = id
+        self.rejestracja = rejestracja
+        self.data = data
+        self.stan_licznika = stan_licznika
+        self.litry_paliwa = litry_paliwa
+        self.koszt_calkowity = koszt_calkowity
+```
+
+### Przykład: pogoda
+
+```python
+class OdczytPogodowy:
+    def __init__(self, timestamp, miasto, temperatura, wilgotnosc, pm25):
+        self.timestamp = timestamp
+        self.miasto = miasto
+        self.temperatura = temperatura
+        self.wilgotnosc = wilgotnosc
+        self.pm25 = pm25
+```
+
+### Przykład: biblioteka
+
+```python
+class Ksiazka:
+    def __init__(self, tytul, autor, gatunek, rok):
+        self.tytul = tytul
+        self.autor = autor
+        self.gatunek = gatunek
+        self.rok = rok
+```
+
+### Przykład: sklep
+
+```python
+class Sprzedaz:
+    def __init__(self, produkt, kategoria, ilosc, cena):
+        self.produkt = produkt
+        self.kategoria = kategoria
+        self.ilosc = ilosc
+        self.cena = cena
+```
+
+### Zasada
+
+Nazwy z klasy muszą potem wracać w całym programie:
+
+```text
+Klasa:
+self.rejestracja
+
+GUI:
+self.input_rejestracja
+
+Tabela:
+tankowanie.rejestracja
+
+JSON:
+Tankowanie(**element)
+```
+
+---
+
+## 2. Manager danych – lista obiektów
+
+Manager przechowuje wiele rekordów.
+
+Schemat:
+
+```python
+class Manager:
+    def __init__(self):
+        self.lista = []
+
+    def dodaj(self, obiekt):
+        self.lista.append(obiekt)
+
+    def wyczysc_dane(self):
+        self.lista.clear()
+```
+
+### Co oznaczają linijki?
+
+```python
+self.lista = []
+```
+
+Tworzy pustą listę. To jest „baza danych” w pamięci programu.
+
+```python
+self.lista.append(obiekt)
+```
+
+Dodaje jeden obiekt do listy.
+
+```python
+self.lista.clear()
+```
+
+Czyści wszystkie dane z listy.
+
+### Przykład: flota
+
+```python
+class FlotaManager:
+    def __init__(self):
+        self.tankowania = []
+
+    def dodaj_tankowanie(self, tankowanie):
+        self.tankowania.append(tankowanie)
+
+    def wyczysc_dane(self):
+        self.tankowania.clear()
+```
+
+### Przykład: pogoda
+
+```python
+class BazaPogodowa:
+    def __init__(self):
+        self.odczyty = []
+
+    def dodaj_odczyt(self, odczyt):
+        self.odczyty.append(odczyt)
+
+    def wyczysc_dane(self):
+        self.odczyty.clear()
+```
+
+### Przykład: biblioteka
+
+```python
+class BibliotekaManager:
+    def __init__(self):
+        self.ksiazki = []
+
+    def dodaj_ksiazke(self, ksiazka):
+        self.ksiazki.append(ksiazka)
+
+    def wyczysc_dane(self):
+        self.ksiazki.clear()
+```
+
+---
+
+## 3. Słowniki – najważniejszy wzór do statystyk
+
+Słownik ma postać:
+
+```python
+wynik = {
+    "klucz": wartosc
+}
+```
+
+Przykłady:
+
+```python
+{
+    "Jedzenie": 450.0,
+    "Paliwo": 700.0
+}
+```
+
+```python
+{
+    "WA12345": 935.0,
+    "LU54321": 500.0
+}
+```
+
+### Schemat dodawania do słownika
+
+```python
+wynik = {}
+
+for obiekt in self.lista:
+    klucz = obiekt.pole_grupujace
+
+    if klucz not in wynik:
+        wynik[klucz] = 0
+
+    wynik[klucz] += obiekt.wartosc
+
+return wynik
+```
+
+### Co oznacza `if klucz not in wynik`?
+
+Jeśli w słowniku nie ma jeszcze danej kategorii/rejestracji/miasta, tworzysz ją z wartością startową `0`.
+
+Przykład:
+
+```python
+if rejestracja not in koszty:
+    koszty[rejestracja] = 0
+```
+
+To znaczy: „jeśli auta jeszcze nie ma w słowniku, dodaj je z kosztem 0”.
+
+Potem:
+
+```python
+koszty[rejestracja] += tankowanie.koszt_calkowity
+```
+
+To znaczy: „dolicz koszt tego tankowania do tego auta”.
+
+---
+
+## 4. Funkcje obliczeniowe – jak czytać polecenie
+
+W poleceniu szukasz zdania:
+
+```text
+Wykres / statystyka ma pokazać [CO] według [CZEGO].
+```
+
+```text
+[CO]      -> wartość na osi Y
+[CZEGO]   -> klucz / grupa na osi X
+```
+
+Przykłady:
+
+```text
+liczba książek według gatunku
+CO = liczba książek
+CZEGO = gatunku
+```
+
+```text
+przychód według kategorii
+CO = przychód = ilosc * cena
+CZEGO = kategorii
+```
+
+```text
+średnie opóźnienie według linii lotniczej
+CO = średnie opóźnienie
+CZEGO = linii lotniczej
+```
+
+---
+
+## 5. Typ funkcji: suma według grupy
+
+Używasz, gdy polecenie mówi:
+
+```text
+suma
+łączny koszt
+koszt całkowity
+łączna wartość
+wydatki według kategorii
+```
+
+Schemat:
+
+```python
+def suma_wedlug_grupy(self):
+    wynik = {}
+
+    for obiekt in self.lista:
+        klucz = obiekt.pole_grupujace
+
+        if klucz not in wynik:
+            wynik[klucz] = 0
+
+        wynik[klucz] += obiekt.pole_liczbowe
+
+    return wynik
+```
+
+### Przykład: budżet, suma wydatków według kategorii
+
+```python
+def suma_wydatkow_wedlug_kategorii(self):
+    wynik = {}
+
+    for wydatek in self.wydatki:
+        kategoria = wydatek.kategoria
+
+        if kategoria not in wynik:
+            wynik[kategoria] = 0
+
+        wynik[kategoria] += wydatek.kwota
+
+    return wynik
+```
+
+### Przykład: flota, koszty paliwa według auta
+
+```python
+def pobierz_koszty_per_samochod(self):
+    koszty = {}
+
+    for tankowanie in self.tankowania:
+        rejestracja = tankowanie.rejestracja
+
+        if rejestracja not in koszty:
+            koszty[rejestracja] = 0
+
+        koszty[rejestracja] += tankowanie.koszt_calkowity
+
+    return koszty
+```
+
+---
+
+## 6. Typ funkcji: liczba rekordów według grupy
+
+Używasz, gdy polecenie mówi:
+
+```text
+liczba
+ilość
+ile jest
+liczba książek
+liczba lotów
+liczba rezerwacji
+```
+
+Schemat:
+
+```python
+def liczba_wedlug_grupy(self):
+    wynik = {}
+
+    for obiekt in self.lista:
+        klucz = obiekt.pole_grupujace
+
+        if klucz not in wynik:
+            wynik[klucz] = 0
+
+        wynik[klucz] += 1
+
+    return wynik
+```
+
+### Przykład: biblioteka, liczba książek według gatunku
+
+```python
+def liczba_ksiazek_wedlug_gatunku(self):
+    wynik = {}
+
+    for ksiazka in self.ksiazki:
+        gatunek = ksiazka.gatunek
+
+        if gatunek not in wynik:
+            wynik[gatunek] = 0
+
+        wynik[gatunek] += 1
+
+    return wynik
+```
+
+### Przykład: hotel, liczba rezerwacji według statusu
+
+```python
+def liczba_rezerwacji_wedlug_statusu(self):
+    wynik = {}
+
+    for rezerwacja in self.rezerwacje:
+        status = rezerwacja.status
+
+        if status not in wynik:
+            wynik[status] = 0
+
+        wynik[status] += 1
+
+    return wynik
+```
+
+---
+
+## 7. Typ funkcji: suma z mnożenia
+
+Używasz, gdy polecenie mówi:
+
+```text
+przychód = ilosc * cena
+wartość magazynu = ilosc * cena
+koszt = liczba_dni * cena_za_dzien
+objętość treningowa = serie * powtorzenia * ciezar
+```
+
+Schemat:
+
+```python
+def suma_z_mnozenia(self):
+    wynik = {}
+
+    for obiekt in self.lista:
+        klucz = obiekt.pole_grupujace
+        wartosc = obiekt.pole1 * obiekt.pole2
+
+        if klucz not in wynik:
+            wynik[klucz] = 0
+
+        wynik[klucz] += wartosc
+
+    return wynik
+```
+
+### Przykład: sklep, przychód według kategorii
+
+```python
+def przychod_wedlug_kategorii(self):
+    wynik = {}
+
+    for sprzedaz in self.sprzedaze:
+        kategoria = sprzedaz.kategoria
+        przychod = sprzedaz.ilosc * sprzedaz.cena
+
+        if kategoria not in wynik:
+            wynik[kategoria] = 0
+
+        wynik[kategoria] += przychod
+
+    return wynik
+```
+
+### Przykład: magazyn, wartość magazynu według kategorii
+
+```python
+def wartosc_wedlug_kategorii(self):
+    wynik = {}
+
+    for produkt in self.produkty:
+        kategoria = produkt.kategoria
+        wartosc = produkt.ilosc * produkt.cena
+
+        if kategoria not in wynik:
+            wynik[kategoria] = 0
+
+        wynik[kategoria] += wartosc
+
+    return wynik
+```
+
+### Przykład: trening, objętość według ćwiczenia
+
+```python
+def objetosc_wedlug_cwiczenia(self):
+    wynik = {}
+
+    for trening in self.treningi:
+        cwiczenie = trening.cwiczenie
+        objetosc = trening.serie * trening.powtorzenia * trening.ciezar
+
+        if cwiczenie not in wynik:
+            wynik[cwiczenie] = 0
+
+        wynik[cwiczenie] += objetosc
+
+    return wynik
+```
+
+---
+
+## 8. Typ funkcji: średnia według grupy
+
+Używasz, gdy polecenie mówi:
+
+```text
+średnia
+średnie opóźnienie
+średnia temperatura
+średnia cena
+średnia ocena
+średnie spalanie
+```
+
+Do średniej najczęściej potrzebujesz:
+
+```text
+suma wartości
+liczba rekordów
+średnia = suma / liczba
+```
+
+Schemat:
+
+```python
+def srednia_wedlug_grupy(self):
+    suma = {}
+    liczba = {}
+
+    for obiekt in self.lista:
+        klucz = obiekt.pole_grupujace
+        wartosc = obiekt.pole_liczbowe
+
+        if klucz not in suma:
+            suma[klucz] = 0
+            liczba[klucz] = 0
+
+        suma[klucz] += wartosc
+        liczba[klucz] += 1
+
+    wynik = {}
+
+    for klucz in suma:
+        wynik[klucz] = suma[klucz] / liczba[klucz]
+
+    return wynik
+```
+
+### Przykład: lotnisko, średnie opóźnienie według linii
+
+```python
+def srednie_opoznienie_wedlug_linii(self):
+    suma = {}
+    liczba = {}
+
+    for lot in self.loty:
+        linia = lot.linia_lotnicza
+        opoznienie = lot.opoznienie_min
+
+        if linia not in suma:
+            suma[linia] = 0
+            liczba[linia] = 0
+
+        suma[linia] += opoznienie
+        liczba[linia] += 1
+
+    wynik = {}
+
+    for linia in suma:
+        wynik[linia] = suma[linia] / liczba[linia]
+
+    return wynik
+```
+
+### Przykład: pogoda, średnia temperatura i wilgotność dla miasta
+
+```python
+def oblicz_srednie(self, nazwa_miasta):
+    historia = self.pobierz_historie_miasta(nazwa_miasta)
+
+    if len(historia) == 0:
+        return None
+
+    suma_temperatur = 0
+    suma_wilgotnosci = 0
+
+    for odczyt in historia:
+        suma_temperatur += odczyt.temperatura
+        suma_wilgotnosci += odczyt.wilgotnosc
+
+    srednia_temperatura = suma_temperatur / len(historia)
+    srednia_wilgotnosci = suma_wilgotnosci / len(historia)
+
+    return srednia_temperatura, srednia_wilgotnosci
+```
+
+---
+
+## 9. Typ funkcji: maksimum według grupy
+
+Używasz, gdy polecenie mówi:
+
+```text
+największy
+maksymalny
+najwyższa cena
+największe opóźnienie
+największy koszt
+```
+
+Schemat:
+
+```python
+def maksimum_wedlug_grupy(self):
+    wynik = {}
+
+    for obiekt in self.lista:
+        klucz = obiekt.pole_grupujace
+        wartosc = obiekt.pole_liczbowe
+
+        if klucz not in wynik:
+            wynik[klucz] = wartosc
+        elif wartosc > wynik[klucz]:
+            wynik[klucz] = wartosc
+
+    return wynik
+```
+
+### Przykład: największe opóźnienie według linii
+
+```python
+def najwieksze_opoznienie_wedlug_linii(self):
+    wynik = {}
+
+    for lot in self.loty:
+        linia = lot.linia_lotnicza
+        opoznienie = lot.opoznienie_min
+
+        if linia not in wynik:
+            wynik[linia] = opoznienie
+        elif opoznienie > wynik[linia]:
+            wynik[linia] = opoznienie
+
+    return wynik
+```
+
+---
+
+## 10. Filtrowanie listy
+
+Używasz, gdy polecenie mówi:
+
+```text
+historia wybranego miasta
+dane tylko dla auta
+filtrowanie po rejestracji
+filtrowanie po kategorii
+```
+
+Schemat:
+
+```python
+def pobierz_dane_dla_grupy(self, szukana_wartosc):
+    wynik = []
+
+    for obiekt in self.lista:
+        if obiekt.pole == szukana_wartosc:
+            wynik.append(obiekt)
+
+    return wynik
+```
+
+### Przykład: pogoda, historia miasta
+
+```python
+def pobierz_historie_miasta(self, nazwa_miasta):
+    historia = []
+
+    for odczyt in self.odczyty:
+        if odczyt.miasto == nazwa_miasta:
+            historia.append(odczyt)
+
+    return historia
+```
+
+### Przykład: flota, tankowania jednego auta
+
+```python
+def pobierz_tankowania_auta(self, rejestracja):
+    tankowania_auta = []
+
+    for tankowanie in self.tankowania:
+        if tankowanie.rejestracja == rejestracja:
+            tankowania_auta.append(tankowanie)
+
+    return tankowania_auta
+```
+
+---
+
+## 11. Specjalna funkcja: średnie spalanie auta
+
+Polecenie floty:
+
+```text
+oblicz_srednie_spalanie(nr_rejestracyjny)
+średnie spalanie na 100 km na podstawie różnicy stanów licznika i wlanych litrów
+```
+
+Wzór:
+
+```text
+spalanie = suma_litrow / przebieg * 100
+```
+
+Kod:
+
+```python
+def oblicz_srednie_spalanie(self, rejestracja):
+    tankowanie_auta = []
+
+    for tankowanie in self.tankowania:
+        if tankowanie.rejestracja == rejestracja:
+            tankowanie_auta.append(tankowanie)
+
+    if len(tankowanie_auta) < 2:
+        return 0
+
+    tankowanie_auta.sort(key=lambda x: x.stan_licznika)
+
+    pierwszy = tankowanie_auta[0]
+    ostatni = tankowanie_auta[-1]
+
+    przebieg = ostatni.stan_licznika - pierwszy.stan_licznika
+
+    if przebieg <= 0:
+        return 0
+
+    suma_litrow = 0
+
+    for tankowanie in tankowanie_auta[1:]:
+        suma_litrow += tankowanie.litry_paliwa
+
+    return suma_litrow / przebieg * 100
+```
+
+### Co oznaczają linijki?
+
+```python
+tankowanie_auta = []
+```
+
+Lista tankowań tylko jednego auta.
+
+```python
+if tankowanie.rejestracja == rejestracja:
+```
+
+Bierzemy tylko tankowania auta o konkretnej rejestracji.
+
+```python
+tankowanie_auta.sort(key=lambda x: x.stan_licznika)
+```
+
+Sortujemy po liczniku, żeby pierwszy pomiar był najniższy, a ostatni najwyższy.
+
+```python
+pierwszy = tankowanie_auta[0]
+ostatni = tankowanie_auta[-1]
+```
+
+Pierwszy i ostatni pomiar.
+
+```python
+przebieg = ostatni.stan_licznika - pierwszy.stan_licznika
+```
+
+Ile kilometrów auto przejechało między pierwszym i ostatnim pomiarem.
+
+```python
+for tankowanie in tankowanie_auta[1:]:
+```
+
+Sumujemy litry od drugiego tankowania, bo pierwsze traktujemy jako punkt startowy.
+
+---
+
+## 12. JSON – zapis i odczyt
+
+JSON służy do zapisu listy obiektów do pliku.
+
+### Zapis
+
+Schemat:
+
+```python
+def zapisz_baze(self, sciezka):
+    dane = []
+
+    for obiekt in self.lista:
+        dane.append(obiekt.__dict__)
+
+    with open(sciezka, "w", encoding="utf-8") as plik:
+        json.dump(dane, plik, ensure_ascii=False, indent=4)
+```
+
+### Co oznacza `__dict__`?
+
+```python
+obiekt.__dict__
+```
+
+Zamienia obiekt na słownik.
+
+Przykład:
+
+```python
+tankowanie.__dict__
+```
+
+może dać:
+
+```python
+{
+    "id": 1,
+    "rejestracja": "WA12345",
+    "data": "2026-06-18",
+    "stan_licznika": 150000,
+    "litry_paliwa": 45.5,
+    "koszt_calkowity": 320.0
+}
+```
+
+### Przykład: flota zapis
+
+```python
+def zapisz_baze(self, sciezka):
+    dane = []
+
+    for tankowanie in self.tankowania:
+        dane.append(tankowanie.__dict__)
+
+    with open(sciezka, "w", encoding="utf-8") as plik:
+        json.dump(dane, plik, ensure_ascii=False, indent=4)
+```
+
+### Odczyt
+
+Schemat:
+
+```python
+def wczytaj_baze(self, sciezka):
+    with open(sciezka, "r", encoding="utf-8") as plik:
+        dane = json.load(plik)
+
+    self.lista = []
+
+    for element in dane:
+        obiekt = Klasa(**element)
+        self.lista.append(obiekt)
+```
+
+### Co oznacza `Klasa(**element)`?
+
+Jeśli `element` jest słownikiem:
+
+```python
+{
+    "id": 1,
+    "rejestracja": "WA12345",
+    "data": "2026-06-18",
+    "stan_licznika": 150000,
+    "litry_paliwa": 45.5,
+    "koszt_calkowity": 320.0
+}
+```
+
+to:
+
+```python
+Tankowanie(**element)
+```
+
+oznacza mniej więcej:
+
+```python
+Tankowanie(
+    id=1,
+    rejestracja="WA12345",
+    data="2026-06-18",
+    stan_licznika=150000,
+    litry_paliwa=45.5,
+    koszt_calkowity=320.0
+)
+```
+
+### Przykład: flota odczyt
+
+```python
+def wczytaj_baze(self, sciezka):
+    with open(sciezka, "r", encoding="utf-8") as plik:
+        dane = json.load(plik)
+
+    self.tankowania = []
+
+    for element in dane:
+        tankowanie = Tankowanie(**element)
+        self.tankowania.append(tankowanie)
+```
+
+### Najczęstszy błąd
+
+Źle:
+
+```python
+Tankowanie = Tankowanie(**element)
+```
+
+Dobrze:
+
+```python
+tankowanie = Tankowanie(**element)
+```
+
+Z dużej litery zostaje klasa. Małą literą robisz zmienną.
+
+---
+
+## 13. Podstawowe importy
+
+Typowy zestaw:
+
+```python
+import sys
+import json
+from datetime import datetime
+
+from PyQt5.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QMessageBox,
+    QFileDialog,
+    QComboBox
+)
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+```
+
+### Co robi `datetime`?
+
+```python
+datetime.now().strftime("%Y-%m-%d")
+```
+
+Daje aktualną datę:
+
+```text
+2026-06-18
+```
+
+```python
+datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+```
+
+Daje datę i godzinę:
+
+```text
+2026-06-18 21:57:29
+```
+
+---
+
+## 14. MainWindow – start okna
+
+Schemat:
+
+```python
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.manager = NazwaManagera()
+
+        self.setWindowTitle("Tytuł aplikacji")
+        self.setGeometry(200, 200, 1000, 700)
+
+        self.utworz_interfejs()
+```
+
+### Co oznaczają linijki?
+
+```python
+super().__init__()
+```
+
+Uruchamia konstruktor klasy `QMainWindow`.
+
+```python
+self.manager = FlotaManager()
+```
+
+Tworzy managera, czyli miejsce na dane.
+
+```python
+self.setWindowTitle("...")
+```
+
+Ustawia tytuł okna.
+
+```python
+self.setGeometry(200, 200, 1000, 700)
+```
+
+Ustawia pozycję i rozmiar okna.
+
+```python
+self.utworz_interfejs()
+```
+
+Buduje formularz, przyciski, tabelę i wykres.
+
+---
+
+## 15. Layouty w PyQt5
+
+Typowy początek `utworz_interfejs()`:
+
+```python
+def utworz_interfejs(self):
+    glowny_widget = QWidget()
+    glowny_layout = QVBoxLayout()
+
+    formularz_layout = QHBoxLayout()
+    przyciski_layout = QHBoxLayout()
+```
+
+### Co to znaczy?
+
+```python
+QVBoxLayout()
+```
+
+Układa elementy pionowo.
+
+```python
+QHBoxLayout()
+```
+
+Układa elementy poziomo.
+
+```python
+glowny_widget.setLayout(glowny_layout)
+self.setCentralWidget(glowny_widget)
+```
+
+Ustawia cały układ jako główny widok okna.
+
+---
+
+## 16. Pola formularza – QLineEdit
+
+`QLineEdit` to zwykłe pole tekstowe.
+
+```python
+self.input_rejestracja = QLineEdit()
+self.input_stan_licznika = QLineEdit()
+self.input_litry_paliwa = QLineEdit()
+self.input_koszt_calkowity = QLineEdit()
+```
+
+Placeholder:
+
+```python
+self.input_rejestracja.setPlaceholderText("Rejestracja")
+```
+
+Dodanie do layoutu:
+
+```python
+formularz_layout.addWidget(QLabel("Rejestracja:"))
+formularz_layout.addWidget(self.input_rejestracja)
+```
+
+### Pobieranie danych z QLineEdit
+
+Tekst:
+
+```python
+rejestracja = self.input_rejestracja.text()
+```
+
+Liczba całkowita:
+
+```python
+stan_licznika = int(self.input_stan_licznika.text())
+```
+
+Liczba z przecinkiem:
+
+```python
+litry_paliwa = float(self.input_litry_paliwa.text().replace(",", "."))
+```
+
+### Dlaczego `replace(",", ".")`?
+
+Python rozumie:
+
+```text
+45.5
+```
+
+ale może nie rozumieć:
+
+```text
+45,5
+```
+
+Dlatego:
+
+```python
+"45,5".replace(",", ".")
+```
+
+robi:
+
+```text
+45.5
+```
+
+---
+
+## 17. QComboBox – lista rozwijana
+
+Używasz, gdy polecenie mówi:
+
+```text
+lista rozwijana
+wybór miasta
+wybór statusu
+wybór kategorii
+wybór typu
+```
+
+Tworzenie:
+
+```python
+self.combo_miasto = QComboBox()
+self.combo_miasto.addItems(["Warszawa", "Kraków", "Gdańsk"])
+```
+
+Pobranie wybranej wartości:
+
+```python
+miasto = self.combo_miasto.currentText()
+```
+
+Automatyczne odświeżenie wykresu po zmianie wyboru:
+
+```python
+self.combo_miasto.currentTextChanged.connect(lambda: self.rysuj_wykres())
+```
+
+### Dlaczego czasem `lambda`?
+
+`currentTextChanged` przekazuje tekst wybranej opcji jako argument.  
+Jeśli funkcja `rysuj_wykres()` nie przyjmuje argumentu, dajesz:
+
+```python
+lambda: self.rysuj_wykres()
+```
+
+To uruchamia funkcję bez przekazywania tekstu.
+
+---
+
+## 18. Przyciski i connect
+
+Tworzenie przycisków:
+
+```python
+self.przycisk_dodaj = QPushButton("Dodaj tankowanie")
+self.przycisk_zapisz = QPushButton("Zapisz bazę")
+self.przycisk_wczytaj = QPushButton("Wczytaj bazę")
+self.przycisk_wyczysc = QPushButton("Wyczyść dane")
+self.przycisk_wykres = QPushButton("Odśwież wykres")
+```
+
+Podpinanie funkcji:
+
+```python
+self.przycisk_dodaj.clicked.connect(self.dodaj_tankowanie_z_formularza)
+self.przycisk_zapisz.clicked.connect(self.zapisz_json)
+self.przycisk_wczytaj.clicked.connect(self.wczytaj_json)
+self.przycisk_wyczysc.clicked.connect(self.wyczysc_dane)
+self.przycisk_wykres.clicked.connect(self.rysuj_wykres)
+```
+
+Dodanie do layoutu:
+
+```python
+przyciski_layout.addWidget(self.przycisk_dodaj)
+przyciski_layout.addWidget(self.przycisk_zapisz)
+przyciski_layout.addWidget(self.przycisk_wczytaj)
+przyciski_layout.addWidget(self.przycisk_wyczysc)
+przyciski_layout.addWidget(self.przycisk_wykres)
+```
+
+### Zasada
+
+Jeśli masz:
+
+```python
+self.przycisk_dodaj.clicked.connect(self.dodaj_tankowanie_z_formularza)
+```
+
+to musi istnieć funkcja:
+
+```python
+def dodaj_tankowanie_z_formularza(self):
+```
+
+Nazwy muszą się zgadzać.
+
+---
+
+## 19. Tabela QTableWidget
+
+Tworzenie tabeli:
+
+```python
+self.tabela = QTableWidget()
+self.tabela.setColumnCount(6)
+self.tabela.setHorizontalHeaderLabels([
+    "ID",
+    "Rejestracja",
+    "Data",
+    "Stan licznika",
+    "Litry paliwa",
+    "Koszt całkowity"
+])
+```
+
+### Odświeżanie tabeli
+
+Schemat:
+
+```python
+def odswiez_tabele(self):
+    self.tabela.setRowCount(0)
+
+    for obiekt in self.manager.lista:
+        row = self.tabela.rowCount()
+        self.tabela.insertRow(row)
+
+        self.tabela.setItem(row, 0, QTableWidgetItem(str(obiekt.pole1)))
+        self.tabela.setItem(row, 1, QTableWidgetItem(str(obiekt.pole2)))
+```
+
+### Przykład: flota
+
+```python
+def odswiez_tabele(self):
+    self.tabela.setRowCount(0)
+
+    for tankowanie in self.manager.tankowania:
+        row = self.tabela.rowCount()
+        self.tabela.insertRow(row)
+
+        self.tabela.setItem(row, 0, QTableWidgetItem(str(tankowanie.id)))
+        self.tabela.setItem(row, 1, QTableWidgetItem(tankowanie.rejestracja))
+        self.tabela.setItem(row, 2, QTableWidgetItem(tankowanie.data))
+        self.tabela.setItem(row, 3, QTableWidgetItem(str(tankowanie.stan_licznika)))
+        self.tabela.setItem(row, 4, QTableWidgetItem(str(tankowanie.litry_paliwa)))
+        self.tabela.setItem(row, 5, QTableWidgetItem(str(tankowanie.koszt_calkowity)))
+```
+
+### Po co `str()`?
+
+`QTableWidgetItem()` chce tekst.  
+Jeśli masz liczbę, np. `45.5`, musisz zrobić:
+
+```python
+str(45.5)
+```
+
+---
+
+## 20. Funkcja dodawania z formularza
+
+Schemat:
+
+```python
+def dodaj_obiekt_z_formularza(self):
+    try:
+        pole1 = self.input_pole1.text()
+        pole2 = int(self.input_pole2.text())
+        pole3 = float(self.input_pole3.text().replace(",", "."))
+
+        obiekt = Klasa(pole1, pole2, pole3)
+
+        self.manager.dodaj(obiekt)
+
+        self.odswiez_tabele()
+        self.rysuj_wykres()
+        self.wyczysc_formularz()
+
+    except ValueError:
+        QMessageBox.warning(self, "Błąd", "Sprawdź wartości liczbowe.")
+```
+
+### Przykład: flota
+
+```python
+def dodaj_tankowanie_z_formularza(self):
+    try:
+        id = len(self.manager.tankowania) + 1
+        data = datetime.now().strftime("%Y-%m-%d")
+
+        rejestracja = self.input_rejestracja.text()
+        stan_licznika = int(self.input_stan_licznika.text())
+        litry_paliwa = float(self.input_litry_paliwa.text().replace(",", "."))
+        koszt_calkowity = float(self.input_koszt_calkowity.text().replace(",", "."))
+
+        tankowanie = Tankowanie(
+            id,
+            rejestracja,
+            data,
+            stan_licznika,
+            litry_paliwa,
+            koszt_calkowity
+        )
+
+        self.manager.dodaj_tankowanie(tankowanie)
+
+        self.odswiez_tabele()
+        self.rysuj_wykres()
+        self.wyczysc_formularz()
+
+    except ValueError:
+        QMessageBox.warning(
+            self,
+            "Błąd",
+            "Stan licznika musi być liczbą całkowitą, a litry i koszt liczbami."
+        )
+```
+
+### Przykład: pogoda
+
+```python
+def dodaj_odczyt_z_formularza(self):
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        miasto = self.combo_miasto.currentText()
+        temperatura = float(self.input_temperatura.text().replace(",", "."))
+        wilgotnosc = int(self.input_wilgotnosc.text())
+        pm25 = int(self.input_pm25.text())
+
+        odczyt = OdczytPogodowy(
+            timestamp,
+            miasto,
+            temperatura,
+            wilgotnosc,
+            pm25
+        )
+
+        self.manager.dodaj_odczyt(odczyt)
+
+        self.odswiez_tabele()
+        self.rysuj_wykres()
+        self.wyczysc_formularz()
+
+    except ValueError:
+        QMessageBox.warning(
+            self,
+            "Błąd",
+            "Temperatura musi być liczbą, a wilgotność i PM2.5 liczbami całkowitymi."
+        )
+```
+
+---
+
+## 21. Czyszczenie formularza
+
+Po dodaniu rekordu warto wyczyścić pola.
+
+Schemat:
+
+```python
+def wyczysc_formularz(self):
+    self.input_pole1.clear()
+    self.input_pole2.clear()
+    self.input_pole3.clear()
+```
+
+### Przykład: flota
+
+```python
+def wyczysc_formularz(self):
+    self.input_rejestracja.clear()
+    self.input_stan_licznika.clear()
+    self.input_litry_paliwa.clear()
+    self.input_koszt_calkowity.clear()
+```
+
+### Przykład: pogoda
+
+```python
+def wyczysc_formularz(self):
+    self.input_temperatura.clear()
+    self.input_wilgotnosc.clear()
+    self.input_pm25.clear()
+```
+
+Nie zawsze czyścisz `QComboBox`, bo użytkownik często chce dodać kilka rekordów dla tej samej opcji.
+
+---
+
+## 22. Funkcje GUI do JSON
+
+Często w `MainWindow` zostawiasz nazwy:
+
+```python
+zapisz_json
+wczytaj_json
+```
+
+Ale w środku wywołujesz managera:
+
+```python
+self.manager.zapisz_baze(sciezka)
+self.manager.wczytaj_baze(sciezka)
+```
+
+### Zapis z oknem wyboru pliku
+
+```python
+def zapisz_json(self):
+    sciezka, _ = QFileDialog.getSaveFileName(
+        self,
+        "Zapisz plik JSON",
+        "",
+        "Pliki JSON (*.json)"
+    )
+
+    if sciezka:
+        self.manager.zapisz_baze(sciezka)
+        QMessageBox.information(self, "Zapisano", "Dane zapisano do pliku.")
+```
+
+### Odczyt z oknem wyboru pliku
+
+```python
+def wczytaj_json(self):
+    sciezka, _ = QFileDialog.getOpenFileName(
+        self,
+        "Wczytaj plik JSON",
+        "",
+        "Pliki JSON (*.json)"
+    )
+
+    if sciezka:
+        self.manager.wczytaj_baze(sciezka)
+        self.odswiez_tabele()
+        self.rysuj_wykres()
+        QMessageBox.information(self, "Wczytano", "Dane wczytano z pliku.")
+```
+
+### Czyszczenie danych
+
+```python
+def wyczysc_dane(self):
+    self.manager.wyczysc_dane()
+    self.odswiez_tabele()
+    self.rysuj_wykres()
+```
+
+---
+
+## 23. Wykres słupkowy Matplotlib
+
+Używasz, gdy masz dane typu:
+
+```text
+kategoria -> wartość
+auto -> spalanie
+linia -> średnie opóźnienie
+status -> liczba rezerwacji
+```
+
+Schemat:
+
+```python
+def rysuj_wykres(self):
+    dane = self.manager.jakas_funkcja()
+
+    self.figure.clear()
+    ax = self.figure.add_subplot(111)
+
+    if len(dane) == 0:
+        ax.set_title("Brak danych do wykresu")
+        ax.text(0.5, 0.5, "Dodaj dane, aby zobaczyć wykres", ha="center", va="center")
+    else:
+        ax.bar(dane.keys(), dane.values())
+        ax.set_title("Tytuł wykresu")
+        ax.set_xlabel("Oś X")
+        ax.set_ylabel("Oś Y")
+
+    self.canvas.draw()
+```
+
+### Przykład: flota, wykres średniego spalania dla aut
+
+Najpierw trzeba stworzyć słownik:
+
+```python
+def pobierz_spalanie_wszystkich_aut(self):
+    wynik = {}
+
+    for tankowanie in self.tankowania:
+        rejestracja = tankowanie.rejestracja
+
+        if rejestracja not in wynik:
+            spalanie = self.oblicz_srednie_spalanie(rejestracja)
+            if spalanie > 0:
+                wynik[rejestracja] = spalanie
+
+    return wynik
+```
+
+Potem wykres:
+
+```python
+def rysuj_wykres(self):
+    dane = self.manager.pobierz_spalanie_wszystkich_aut()
+
+    self.figure.clear()
+    ax = self.figure.add_subplot(111)
+
+    if len(dane) == 0:
+        ax.set_title("Brak danych do wykresu")
+        ax.text(
+            0.5,
+            0.5,
+            "Dodaj minimum dwa tankowania dla auta",
+            ha="center",
+            va="center"
+        )
+    else:
+        ax.bar(dane.keys(), dane.values())
+        ax.set_title("Średnie spalanie według samochodu")
+        ax.set_xlabel("Rejestracja")
+        ax.set_ylabel("Spalanie [l/100 km]")
+        ax.tick_params(axis="x", rotation=45)
+
+    self.figure.tight_layout()
+    self.canvas.draw()
+```
+
+---
+
+## 24. Wykres liniowy Matplotlib
+
+Używasz, gdy masz trend w czasie:
+
+```text
+czas -> temperatura
+czas -> cena
+czas -> prędkość
+czas -> wilgotność
+```
+
+Schemat:
+
+```python
+def rysuj_wykres(self):
+    grupa = self.combo_grupa.currentText()
+    historia = self.manager.pobierz_historie(grupa)
+
+    czasy = []
+    wartosci = []
+
+    for rekord in historia:
+        czasy.append(rekord.timestamp)
+        wartosci.append(rekord.wartosc)
+
+    self.figure.clear()
+    ax = self.figure.add_subplot(111)
+
+    if len(historia) == 0:
+        ax.set_title("Brak danych")
+        ax.text(0.5, 0.5, "Dodaj dane", ha="center", va="center")
+    else:
+        ax.plot(czasy, wartosci, marker="o")
+        ax.set_title(f"Wartość w czasie - {grupa}")
+        ax.set_xlabel("Czas")
+        ax.set_ylabel("Wartość")
+        ax.tick_params(axis="x", rotation=45)
+
+    self.figure.tight_layout()
+    self.canvas.draw()
+```
+
+### Przykład: pogoda, temperatura w czasie
+
+```python
+def rysuj_wykres(self):
+    miasto = self.combo_miasto.currentText()
+    historia = self.manager.pobierz_historie_miasta(miasto)
+
+    czasy = []
+    temperatury = []
+
+    for odczyt in historia:
+        czasy.append(odczyt.timestamp[11:19])
+        temperatury.append(odczyt.temperatura)
+
+    self.figure.clear()
+    ax = self.figure.add_subplot(111)
+
+    if len(historia) == 0:
+        ax.set_title("Brak danych do wykresu")
+        ax.text(
+            0.5,
+            0.5,
+            "Dodaj odczyty, aby zobaczyć wykres",
+            ha="center",
+            va="center"
+        )
+    else:
+        ax.plot(czasy, temperatury, marker="o")
+        ax.set_title(f"Temperatura w czasie - {miasto}")
+        ax.set_xlabel("Czas pomiaru")
+        ax.set_ylabel("Temperatura [C]")
+        ax.tick_params(axis="x", rotation=45)
+
+    self.figure.tight_layout()
+    self.canvas.draw()
+```
+
+### Co robi `timestamp[11:19]`?
+
+Dla tekstu:
+
+```text
+2026-06-18 21:57:29
+```
+
+fragment:
+
+```python
+timestamp[11:19]
+```
+
+daje:
+
+```text
+21:57:29
+```
+
+czyli samą godzinę.
+
+---
+
+## 25. Automatyczny zapis i odczyt JSON
+
+Jeśli polecenie mówi:
+
+```text
+automatyczny odczyt przy starcie
+automatyczny zapis przy zamknięciu
+```
+
+możesz zrobić prosto.
+
+### Automatyczny odczyt przy starcie
+
+W `__init__`, po utworzeniu managera, możesz dodać:
+
+```python
+try:
+    self.manager.wczytaj_baze("flota.json")
+except FileNotFoundError:
+    pass
+```
+
+Potem po utworzeniu interfejsu dobrze odświeżyć tabelę i wykres:
+
+```python
+self.utworz_interfejs()
+self.odswiez_tabele()
+self.rysuj_wykres()
+```
+
+### Automatyczny zapis przy zamknięciu
+
+Dodaj w `MainWindow` funkcję:
+
+```python
+def closeEvent(self, event):
+    self.manager.zapisz_baze("flota.json")
+    event.accept()
+```
+
+### Co oznacza `closeEvent`?
+
+PyQt automatycznie uruchamia tę funkcję, gdy zamykasz okno.
+
+---
+
+## 26. Najczęstsze błędy
+
+### AttributeError
+
+Przykład:
+
+```text
+AttributeError: 'MainWindow' object has no attribute 'input_temperatua'
+```
+
+Znaczy: literówka w nazwie.
+
+Masz:
+
+```python
+self.input_temperatua
+```
+
+a powinno być:
+
+```python
+self.input_temperatura
+```
+
+### NameError
+
+Przykład:
+
+```text
+NameError: name 'Manager' is not defined
+```
+
+Znaczy: używasz starej nazwy klasy.
+
+Jeśli zmieniłeś:
+
+```python
+class Manager
+```
+
+na:
+
+```python
+class FlotaManager
+```
+
+to w `MainWindow` musi być:
+
+```python
+self.manager = FlotaManager()
+```
+
+### ValueError
+
+Przykład:
+
+```text
+ValueError: could not convert string to float
+```
+
+Znaczy: wpisano tekst tam, gdzie ma być liczba.
+
+Naprawa:
+
+```python
+float(self.input_litry_paliwa.text().replace(",", "."))
+```
+
+i wpisuj:
+
+```text
+45.5
+```
+
+albo:
+
+```text
+45,5
+```
+
+ale nie:
+
+```text
+45 litrów
+```
+
+### QTableWidgetItem i liczby
+
+Źle:
+
+```python
+QTableWidgetItem(tankowanie.stan_licznika)
+```
+
+Dobrze:
+
+```python
+QTableWidgetItem(str(tankowanie.stan_licznika))
+```
+
+### `currentTextChanged` i `lambda`
+
+Jeśli masz:
+
+```python
+self.combo_miasto.currentTextChanged.connect(self.rysuj_wykres)
+```
+
+i program się wywala po zmianie miasta, użyj:
+
+```python
+self.combo_miasto.currentTextChanged.connect(lambda: self.rysuj_wykres())
+```
+
+---
+
+## 27. Checklista przeróbki szablonu
+
+Po otrzymaniu polecenia:
+
+```text
+1. Wypisz mapę:
+   rekord =
+   pola =
+   manager =
+   lista =
+   dodawanie =
+   wykres =
+   JSON =
+
+2. Zmień klasę danych.
+
+3. Zmień manager:
+   lista
+   dodawanie
+   czyszczenie
+   funkcje obliczeniowe
+
+4. Zmień JSON w managerze:
+   zapis
+   odczyt
+
+5. Zmień MainWindow:
+   self.manager
+   tytuł okna
+
+6. Zmień formularz:
+   inputy
+   placeholdery
+   QLabel
+
+7. Zmień przyciski:
+   tekst
+   clicked.connect
+
+8. Zmień tabelę:
+   liczba kolumn
+   nagłówki
+
+9. Zmień funkcję dodawania:
+   pobranie danych
+   int / float / text
+   tworzenie obiektu
+   dodanie do managera
+   odświeżenie tabeli i wykresu
+
+10. Zmień odswiez_tabele.
+
+11. Zmień wyczysc_formularz.
+
+12. Zmień rysuj_wykres.
+
+13. Ctrl + F:
+   szukaj starych nazw:
+   Rekord
+   rekord
+   rekordy
+   wartosc
+   opis
+   input_wartosc
+   input_opis
+   Manager()
+   lot
+   opoznienie
+   aktualizuj
+
+14. Run.
+
+15. Czytaj błędy od ostatniej linijki.
+```
+
+---
+
+## 28. Mini wzorce pod różne polecenia
+
+### Budżet
+
+```text
+Rekord: Wydatek
+Pola: data, kategoria, kwota, opis
+Lista: wydatki
+Wykres: kategoria -> suma kwot
+```
+
+Najważniejsza funkcja:
+
+```python
+wynik[kategoria] += wydatek.kwota
+```
+
+### Magazyn
+
+```text
+Rekord: Produkt
+Pola: nazwa, kategoria, ilosc, cena, dostawca
+Lista: produkty
+Wykres: kategoria -> ilosc * cena
+```
+
+Najważniejsza funkcja:
+
+```python
+wartosc = produkt.ilosc * produkt.cena
+wynik[kategoria] += wartosc
+```
+
+### Biblioteka
+
+```text
+Rekord: Ksiazka
+Pola: tytul, autor, gatunek, rok
+Lista: ksiazki
+Wykres: gatunek -> liczba książek
+```
+
+Najważniejsza funkcja:
+
+```python
+wynik[gatunek] += 1
+```
+
+### Lotnisko
+
+```text
+Rekord: Lot
+Pola: numer_lotu, linia_lotnicza, kierunek, typ_operacji, planowana_godzina, opoznienie_min, status
+Lista: loty
+Wykres: linia_lotnicza -> średnie opóźnienie
+```
+
+Najważniejsza funkcja:
+
+```python
+suma[linia] += lot.opoznienie_min
+liczba[linia] += 1
+wynik[linia] = suma[linia] / liczba[linia]
+```
+
+### Pogoda
+
+```text
+Rekord: OdczytPogodowy
+Pola: timestamp, miasto, temperatura, wilgotnosc, pm25
+Lista: odczyty
+Wykres: timestamp -> temperatura dla wybranego miasta
+```
+
+Najważniejsza funkcja:
+
+```python
+historia = self.manager.pobierz_historie_miasta(miasto)
+ax.plot(czasy, temperatury, marker="o")
+```
+
+### Flota
+
+```text
+Rekord: Tankowanie
+Pola: id, rejestracja, data, stan_licznika, litry_paliwa, koszt_calkowity
+Lista: tankowania
+Wykres: rejestracja -> średnie spalanie
+```
+
+Najważniejsza funkcja:
+
+```python
+return suma_litrow / przebieg * 100
+```
+
+---
+
+## 29. Co robić, jak program gaśnie
+
+1. Patrz na konsolę na dole.
+2. Szukaj `Traceback`.
+3. Ostatnia linijka mówi najwięcej.
+4. Jeśli nie widać błędu, dodaj pułapkę:
+
+```python
+import traceback
+```
+
+W funkcji:
+
+```python
+except Exception as blad:
+    traceback.print_exc()
+    QMessageBox.warning(self, "Błąd programu", str(blad))
+```
+
+---
+
+## 30. Krótka ściąga typów pól
+
+```text
+tekst                       -> .text()
+liczba całkowita int        -> int(self.input.text())
+liczba z przecinkiem float  -> float(self.input.text().replace(",", "."))
+QComboBox                   -> self.combo.currentText()
+data                        -> datetime.now().strftime("%Y-%m-%d")
+data i godzina              -> datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+```
+
+Przykłady:
+
+```python
+rejestracja = self.input_rejestracja.text()
+stan_licznika = int(self.input_stan_licznika.text())
+litry_paliwa = float(self.input_litry_paliwa.text().replace(",", "."))
+miasto = self.combo_miasto.currentText()
+data = datetime.now().strftime("%Y-%m-%d")
+timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+```
+
+---
+
+## 31. Najkrótszy wzór myślenia
+
+```text
+Klasa danych mówi: jak wygląda jeden rekord.
+Manager mówi: gdzie trzymam wiele rekordów.
+Funkcja obliczeniowa mówi: co liczę z tych rekordów.
+GUI mówi: jak użytkownik wpisuje dane.
+Tabela mówi: jak dane wyświetlam.
+JSON mówi: jak dane zapisuję.
+Wykres mówi: jak dane analizuję.
+```
