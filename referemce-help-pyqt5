@@ -1,0 +1,868 @@
+# Przykłady ćwiczeniowe PyQt5 + OOP + JSON + Matplotlib
+
+Plik zawiera kompletne przykłady aplikacji w stylu zadań laboratoryjnych:
+- klasa danych,
+- manager,
+- zapis/odczyt JSON,
+- GUI PyQt5,
+- tabela,
+- wykres Matplotlib.
+
+Używaj ich jako wzorców do przerabiania pod polecenie.
+
+---
+
+# Przykład 1 — rejestr wydatków
+
+```python
+import sys
+import json
+
+from PyQt5.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QMessageBox,
+    QFileDialog
+)
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+
+class Wydatek:
+    def __init__(self, data, kategoria, kwota, opis):
+        self.data = data
+        self.kategoria = kategoria
+        self.kwota = kwota
+        self.opis = opis
+
+
+class BudzetManager:
+    def __init__(self):
+        self.wydatki = []
+
+    def dodaj_wydatek(self, wydatek):
+        self.wydatki.append(wydatek)
+
+    def wyczysc_dane(self):
+        self.wydatki.clear()
+
+    def suma_wedlug_kategorii(self):
+        wynik = {}
+
+        for wydatek in self.wydatki:
+            kategoria = wydatek.kategoria
+
+            if kategoria not in wynik:
+                wynik[kategoria] = 0
+
+            wynik[kategoria] += wydatek.kwota
+
+        return wynik
+
+    def zapisz_baze(self, sciezka):
+        dane = []
+
+        for wydatek in self.wydatki:
+            dane.append(wydatek.__dict__)
+
+        with open(sciezka, "w", encoding="utf-8") as plik:
+            json.dump(dane, plik, ensure_ascii=False, indent=4)
+
+    def wczytaj_baze(self, sciezka):
+        with open(sciezka, "r", encoding="utf-8") as plik:
+            dane = json.load(plik)
+
+        self.wydatki = []
+
+        for element in dane:
+            wydatek = Wydatek(**element)
+            self.wydatki.append(wydatek)
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.manager = BudzetManager()
+
+        self.setWindowTitle("Rejestr danych")
+        self.setGeometry(200, 200, 1000, 700)
+
+        self.utworz_interfejs()
+
+    def utworz_interfejs(self):
+        glowny_widget = QWidget()
+        glowny_layout = QVBoxLayout()
+
+        formularz_layout = QHBoxLayout()
+
+        self.input_data = QLineEdit()
+        self.input_kategoria = QLineEdit()
+        self.input_kwota = QLineEdit()
+        self.input_opis = QLineEdit()
+
+        self.input_data.setPlaceholderText("Data")
+        self.input_kategoria.setPlaceholderText("Kategoria")
+        self.input_kwota.setPlaceholderText("Kwota")
+        self.input_opis.setPlaceholderText("Opis")
+
+        formularz_layout.addWidget(QLabel("Data:"))
+        formularz_layout.addWidget(self.input_data)
+
+        formularz_layout.addWidget(QLabel("Kategoria:"))
+        formularz_layout.addWidget(self.input_kategoria)
+
+        formularz_layout.addWidget(QLabel("Kwota:"))
+        formularz_layout.addWidget(self.input_kwota)
+
+        formularz_layout.addWidget(QLabel("Opis:"))
+        formularz_layout.addWidget(self.input_opis)
+
+        przyciski_layout = QHBoxLayout()
+
+        self.przycisk_dodaj = QPushButton("Dodaj")
+        self.przycisk_zapisz = QPushButton("Zapisz")
+        self.przycisk_wczytaj = QPushButton("Wczytaj")
+        self.przycisk_wyczysc = QPushButton("Wyczyść")
+        self.przycisk_wykres = QPushButton("Odśwież wykres")
+
+        self.przycisk_dodaj.clicked.connect(self.dodaj_wydatek_z_formularza)
+        self.przycisk_zapisz.clicked.connect(self.zapisz_json)
+        self.przycisk_wczytaj.clicked.connect(self.wczytaj_json)
+        self.przycisk_wyczysc.clicked.connect(self.wyczysc_dane)
+        self.przycisk_wykres.clicked.connect(self.rysuj_wykres)
+
+        przyciski_layout.addWidget(self.przycisk_dodaj)
+        przyciski_layout.addWidget(self.przycisk_zapisz)
+        przyciski_layout.addWidget(self.przycisk_wczytaj)
+        przyciski_layout.addWidget(self.przycisk_wyczysc)
+        przyciski_layout.addWidget(self.przycisk_wykres)
+
+        self.tabela = QTableWidget()
+        self.tabela.setColumnCount(4)
+        self.tabela.setHorizontalHeaderLabels([
+            "Data",
+            "Kategoria",
+            "Kwota",
+            "Opis"
+        ])
+
+        self.figure = Figure(figsize=(5, 3))
+        self.canvas = FigureCanvas(self.figure)
+
+        glowny_layout.addLayout(formularz_layout)
+        glowny_layout.addLayout(przyciski_layout)
+        glowny_layout.addWidget(self.tabela)
+        glowny_layout.addWidget(self.canvas)
+
+        glowny_widget.setLayout(glowny_layout)
+        self.setCentralWidget(glowny_widget)
+
+    def dodaj_wydatek_z_formularza(self):
+        try:
+            data = self.input_data.text()
+            kategoria = self.input_kategoria.text()
+            kwota = float(self.input_kwota.text().replace(",", "."))
+            opis = self.input_opis.text()
+
+            wydatek = Wydatek(data, kategoria, kwota, opis)
+
+            self.manager.dodaj_wydatek(wydatek)
+
+            self.odswiez_tabele()
+            self.rysuj_wykres()
+            self.wyczysc_formularz()
+
+        except ValueError:
+            QMessageBox.warning(self, "Błąd", "Kwota musi być liczbą.")
+
+    def odswiez_tabele(self):
+        self.tabela.setRowCount(0)
+
+        for wydatek in self.manager.wydatki:
+            row = self.tabela.rowCount()
+            self.tabela.insertRow(row)
+
+            self.tabela.setItem(row, 0, QTableWidgetItem(wydatek.data))
+            self.tabela.setItem(row, 1, QTableWidgetItem(wydatek.kategoria))
+            self.tabela.setItem(row, 2, QTableWidgetItem(str(wydatek.kwota)))
+            self.tabela.setItem(row, 3, QTableWidgetItem(wydatek.opis))
+
+    def wyczysc_formularz(self):
+        self.input_data.clear()
+        self.input_kategoria.clear()
+        self.input_kwota.clear()
+        self.input_opis.clear()
+
+    def rysuj_wykres(self):
+        dane = self.manager.suma_wedlug_kategorii()
+
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+
+        if len(dane) == 0:
+            ax.set_title("Brak danych")
+            ax.text(0.5, 0.5, "Dodaj dane, aby zobaczyć wykres", ha="center", va="center")
+        else:
+            ax.bar(dane.keys(), dane.values())
+            ax.set_title("Suma według kategorii")
+            ax.set_xlabel("Kategoria")
+            ax.set_ylabel("Suma")
+            ax.tick_params(axis="x", rotation=45)
+
+        self.figure.tight_layout()
+        self.canvas.draw()
+
+    def zapisz_json(self):
+        sciezka, _ = QFileDialog.getSaveFileName(
+            self,
+            "Zapisz plik JSON",
+            "",
+            "Pliki JSON (*.json)"
+        )
+
+        if sciezka:
+            self.manager.zapisz_baze(sciezka)
+            QMessageBox.information(self, "Zapisano", "Dane zapisano do pliku.")
+
+    def wczytaj_json(self):
+        sciezka, _ = QFileDialog.getOpenFileName(
+            self,
+            "Wczytaj plik JSON",
+            "",
+            "Pliki JSON (*.json)"
+        )
+
+        if sciezka:
+            self.manager.wczytaj_baze(sciezka)
+            self.odswiez_tabele()
+            self.rysuj_wykres()
+            QMessageBox.information(self, "Wczytano", "Dane wczytano z pliku.")
+
+    def wyczysc_dane(self):
+        self.manager.wyczysc_dane()
+        self.odswiez_tabele()
+        self.rysuj_wykres()
+
+
+app = QApplication(sys.argv)
+window = MainWindow()
+window.show()
+sys.exit(app.exec_())
+```
+
+---
+
+# Przykład 2 — panel pomiarów
+
+```python
+import sys
+import json
+from datetime import datetime
+
+from PyQt5.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QMessageBox,
+    QFileDialog,
+    QComboBox
+)
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+
+class Pomiar:
+    def __init__(self, timestamp, miejsce, wartosc, wilgotnosc, pm25):
+        self.timestamp = timestamp
+        self.miejsce = miejsce
+        self.wartosc = wartosc
+        self.wilgotnosc = wilgotnosc
+        self.pm25 = pm25
+
+
+class PomiarManager:
+    def __init__(self):
+        self.pomiary = []
+
+    def dodaj_pomiar(self, pomiar):
+        self.pomiary.append(pomiar)
+
+    def wyczysc_dane(self):
+        self.pomiary.clear()
+
+    def pobierz_historie_miejsca(self, nazwa_miejsca):
+        historia = []
+
+        for pomiar in self.pomiary:
+            if pomiar.miejsce == nazwa_miejsca:
+                historia.append(pomiar)
+
+        return historia
+
+    def oblicz_srednie(self, nazwa_miejsca):
+        historia = self.pobierz_historie_miejsca(nazwa_miejsca)
+
+        if len(historia) == 0:
+            return None
+
+        suma_wartosci = 0
+        suma_wilgotnosci = 0
+
+        for pomiar in historia:
+            suma_wartosci += pomiar.wartosc
+            suma_wilgotnosci += pomiar.wilgotnosc
+
+        srednia_wartosc = suma_wartosci / len(historia)
+        srednia_wilgotnosc = suma_wilgotnosci / len(historia)
+
+        return srednia_wartosc, srednia_wilgotnosc
+
+    def zapisz_baze(self, sciezka):
+        dane = []
+
+        for pomiar in self.pomiary:
+            dane.append(pomiar.__dict__)
+
+        with open(sciezka, "w", encoding="utf-8") as plik:
+            json.dump(dane, plik, ensure_ascii=False, indent=4)
+
+    def wczytaj_baze(self, sciezka):
+        with open(sciezka, "r", encoding="utf-8") as plik:
+            dane = json.load(plik)
+
+        self.pomiary = []
+
+        for element in dane:
+            pomiar = Pomiar(**element)
+            self.pomiary.append(pomiar)
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.manager = PomiarManager()
+
+        self.setWindowTitle("Panel pomiarów")
+        self.setGeometry(200, 200, 1100, 750)
+
+        self.utworz_interfejs()
+
+    def utworz_interfejs(self):
+        glowny_widget = QWidget()
+        glowny_layout = QVBoxLayout()
+
+        formularz_layout = QHBoxLayout()
+
+        self.combo_miejsce = QComboBox()
+        self.combo_miejsce.addItems(["Warszawa", "Kraków", "Gdańsk", "Poznań"])
+
+        self.input_wartosc = QLineEdit()
+        self.input_wilgotnosc = QLineEdit()
+        self.input_pm25 = QLineEdit()
+
+        self.input_wartosc.setPlaceholderText("Wartość")
+        self.input_wilgotnosc.setPlaceholderText("Wilgotność")
+        self.input_pm25.setPlaceholderText("PM2.5")
+
+        formularz_layout.addWidget(QLabel("Miejsce:"))
+        formularz_layout.addWidget(self.combo_miejsce)
+
+        formularz_layout.addWidget(QLabel("Wartość:"))
+        formularz_layout.addWidget(self.input_wartosc)
+
+        formularz_layout.addWidget(QLabel("Wilgotność:"))
+        formularz_layout.addWidget(self.input_wilgotnosc)
+
+        formularz_layout.addWidget(QLabel("PM2.5:"))
+        formularz_layout.addWidget(self.input_pm25)
+
+        przyciski_layout = QHBoxLayout()
+
+        self.przycisk_dodaj = QPushButton("Dodaj pomiar")
+        self.przycisk_zapisz = QPushButton("Zapisz")
+        self.przycisk_wczytaj = QPushButton("Wczytaj")
+        self.przycisk_wyczysc = QPushButton("Wyczyść")
+        self.przycisk_wykres = QPushButton("Odśwież wykres")
+
+        self.przycisk_dodaj.clicked.connect(self.dodaj_pomiar_z_formularza)
+        self.przycisk_zapisz.clicked.connect(self.zapisz_json)
+        self.przycisk_wczytaj.clicked.connect(self.wczytaj_json)
+        self.przycisk_wyczysc.clicked.connect(self.wyczysc_dane)
+        self.przycisk_wykres.clicked.connect(self.rysuj_wykres)
+        self.combo_miejsce.currentTextChanged.connect(lambda: self.rysuj_wykres())
+
+        przyciski_layout.addWidget(self.przycisk_dodaj)
+        przyciski_layout.addWidget(self.przycisk_zapisz)
+        przyciski_layout.addWidget(self.przycisk_wczytaj)
+        przyciski_layout.addWidget(self.przycisk_wyczysc)
+        przyciski_layout.addWidget(self.przycisk_wykres)
+
+        self.tabela = QTableWidget()
+        self.tabela.setColumnCount(5)
+        self.tabela.setHorizontalHeaderLabels([
+            "Czas",
+            "Miejsce",
+            "Wartość",
+            "Wilgotność",
+            "PM2.5"
+        ])
+
+        self.figure = Figure(figsize=(5, 3))
+        self.canvas = FigureCanvas(self.figure)
+
+        glowny_layout.addLayout(formularz_layout)
+        glowny_layout.addLayout(przyciski_layout)
+        glowny_layout.addWidget(self.tabela)
+        glowny_layout.addWidget(self.canvas)
+
+        glowny_widget.setLayout(glowny_layout)
+        self.setCentralWidget(glowny_widget)
+
+    def dodaj_pomiar_z_formularza(self):
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            miejsce = self.combo_miejsce.currentText()
+            wartosc = float(self.input_wartosc.text().replace(",", "."))
+            wilgotnosc = int(self.input_wilgotnosc.text())
+            pm25 = int(self.input_pm25.text())
+
+            pomiar = Pomiar(
+                timestamp,
+                miejsce,
+                wartosc,
+                wilgotnosc,
+                pm25
+            )
+
+            self.manager.dodaj_pomiar(pomiar)
+
+            self.odswiez_tabele()
+            self.rysuj_wykres()
+            self.wyczysc_formularz()
+
+        except ValueError:
+            QMessageBox.warning(
+                self,
+                "Błąd",
+                "Wartość musi być liczbą, a wilgotność i PM2.5 liczbami całkowitymi."
+            )
+
+    def odswiez_tabele(self):
+        self.tabela.setRowCount(0)
+
+        for pomiar in self.manager.pomiary:
+            row = self.tabela.rowCount()
+            self.tabela.insertRow(row)
+
+            self.tabela.setItem(row, 0, QTableWidgetItem(pomiar.timestamp))
+            self.tabela.setItem(row, 1, QTableWidgetItem(pomiar.miejsce))
+            self.tabela.setItem(row, 2, QTableWidgetItem(str(pomiar.wartosc)))
+            self.tabela.setItem(row, 3, QTableWidgetItem(str(pomiar.wilgotnosc)))
+            self.tabela.setItem(row, 4, QTableWidgetItem(str(pomiar.pm25)))
+
+    def wyczysc_formularz(self):
+        self.input_wartosc.clear()
+        self.input_wilgotnosc.clear()
+        self.input_pm25.clear()
+
+    def rysuj_wykres(self):
+        miejsce = self.combo_miejsce.currentText()
+        historia = self.manager.pobierz_historie_miejsca(miejsce)
+
+        czasy = []
+        wartosci = []
+
+        for pomiar in historia:
+            czasy.append(pomiar.timestamp[11:19])
+            wartosci.append(pomiar.wartosc)
+
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+
+        if len(historia) == 0:
+            ax.set_title("Brak danych")
+            ax.text(0.5, 0.5, "Dodaj pomiary", ha="center", va="center")
+        else:
+            ax.plot(czasy, wartosci, marker="o")
+            ax.set_title(f"Trend wartości - {miejsce}")
+            ax.set_xlabel("Czas")
+            ax.set_ylabel("Wartość")
+            ax.tick_params(axis="x", rotation=45)
+
+        self.figure.tight_layout()
+        self.canvas.draw()
+
+    def zapisz_json(self):
+        sciezka, _ = QFileDialog.getSaveFileName(
+            self,
+            "Zapisz plik JSON",
+            "",
+            "Pliki JSON (*.json)"
+        )
+
+        if sciezka:
+            self.manager.zapisz_baze(sciezka)
+            QMessageBox.information(self, "Zapisano", "Dane zapisano do pliku.")
+
+    def wczytaj_json(self):
+        sciezka, _ = QFileDialog.getOpenFileName(
+            self,
+            "Wczytaj plik JSON",
+            "",
+            "Pliki JSON (*.json)"
+        )
+
+        if sciezka:
+            self.manager.wczytaj_baze(sciezka)
+            self.odswiez_tabele()
+            self.rysuj_wykres()
+            QMessageBox.information(self, "Wczytano", "Dane wczytano z pliku.")
+
+    def wyczysc_dane(self):
+        self.manager.wyczysc_dane()
+        self.odswiez_tabele()
+        self.rysuj_wykres()
+
+
+app = QApplication(sys.argv)
+window = MainWindow()
+window.show()
+sys.exit(app.exec_())
+```
+
+---
+
+# Przykład 3 — ewidencja eksploatacyjna
+
+```python
+import sys
+import json
+from datetime import datetime
+
+from PyQt5.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QMessageBox,
+    QFileDialog
+)
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+
+class Wpis:
+    def __init__(self, id, identyfikator, data, licznik, ilosc, koszt):
+        self.id = id
+        self.identyfikator = identyfikator
+        self.data = data
+        self.licznik = licznik
+        self.ilosc = ilosc
+        self.koszt = koszt
+
+
+class EwidencjaManager:
+    def __init__(self):
+        self.wpisy = []
+
+    def dodaj_wpis(self, wpis):
+        self.wpisy.append(wpis)
+
+    def wyczysc_dane(self):
+        self.wpisy.clear()
+
+    def pobierz_koszty_per_obiekt(self):
+        koszty = {}
+
+        for wpis in self.wpisy:
+            identyfikator = wpis.identyfikator
+
+            if identyfikator not in koszty:
+                koszty[identyfikator] = 0
+
+            koszty[identyfikator] += wpis.koszt
+
+        return koszty
+
+    def oblicz_srednia_wartosc(self, identyfikator):
+        wpisy_obiektu = []
+
+        for wpis in self.wpisy:
+            if wpis.identyfikator == identyfikator:
+                wpisy_obiektu.append(wpis)
+
+        if len(wpisy_obiektu) < 2:
+            return 0
+
+        wpisy_obiektu.sort(key=lambda x: x.licznik)
+
+        pierwszy = wpisy_obiektu[0]
+        ostatni = wpisy_obiektu[-1]
+
+        roznica = ostatni.licznik - pierwszy.licznik
+
+        if roznica <= 0:
+            return 0
+
+        suma_ilosci = 0
+
+        for wpis in wpisy_obiektu[1:]:
+            suma_ilosci += wpis.ilosc
+
+        return suma_ilosci / roznica * 100
+
+    def pobierz_srednie_wszystkich_obiektow(self):
+        wynik = {}
+
+        for wpis in self.wpisy:
+            identyfikator = wpis.identyfikator
+
+            if identyfikator not in wynik:
+                srednia = self.oblicz_srednia_wartosc(identyfikator)
+
+                if srednia > 0:
+                    wynik[identyfikator] = srednia
+
+        return wynik
+
+    def zapisz_baze(self, sciezka):
+        dane = []
+
+        for wpis in self.wpisy:
+            dane.append(wpis.__dict__)
+
+        with open(sciezka, "w", encoding="utf-8") as plik:
+            json.dump(dane, plik, ensure_ascii=False, indent=4)
+
+    def wczytaj_baze(self, sciezka):
+        with open(sciezka, "r", encoding="utf-8") as plik:
+            dane = json.load(plik)
+
+        self.wpisy = []
+
+        for element in dane:
+            wpis = Wpis(**element)
+            self.wpisy.append(wpis)
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.manager = EwidencjaManager()
+
+        self.setWindowTitle("Ewidencja danych")
+        self.setGeometry(200, 200, 1000, 700)
+
+        self.utworz_interfejs()
+
+    def utworz_interfejs(self):
+        glowny_widget = QWidget()
+        glowny_layout = QVBoxLayout()
+
+        formularz_layout = QHBoxLayout()
+
+        self.input_identyfikator = QLineEdit()
+        self.input_licznik = QLineEdit()
+        self.input_ilosc = QLineEdit()
+        self.input_koszt = QLineEdit()
+
+        self.input_identyfikator.setPlaceholderText("Identyfikator")
+        self.input_licznik.setPlaceholderText("Licznik")
+        self.input_ilosc.setPlaceholderText("Ilość")
+        self.input_koszt.setPlaceholderText("Koszt")
+
+        formularz_layout.addWidget(QLabel("Identyfikator:"))
+        formularz_layout.addWidget(self.input_identyfikator)
+
+        formularz_layout.addWidget(QLabel("Licznik:"))
+        formularz_layout.addWidget(self.input_licznik)
+
+        formularz_layout.addWidget(QLabel("Ilość:"))
+        formularz_layout.addWidget(self.input_ilosc)
+
+        formularz_layout.addWidget(QLabel("Koszt:"))
+        formularz_layout.addWidget(self.input_koszt)
+
+        przyciski_layout = QHBoxLayout()
+
+        self.przycisk_dodaj = QPushButton("Dodaj wpis")
+        self.przycisk_zapisz = QPushButton("Zapisz")
+        self.przycisk_wczytaj = QPushButton("Wczytaj")
+        self.przycisk_wyczysc = QPushButton("Wyczyść")
+        self.przycisk_wykres = QPushButton("Odśwież wykres")
+
+        self.przycisk_dodaj.clicked.connect(self.dodaj_wpis_z_formularza)
+        self.przycisk_zapisz.clicked.connect(self.zapisz_json)
+        self.przycisk_wczytaj.clicked.connect(self.wczytaj_json)
+        self.przycisk_wyczysc.clicked.connect(self.wyczysc_dane)
+        self.przycisk_wykres.clicked.connect(self.rysuj_wykres)
+
+        przyciski_layout.addWidget(self.przycisk_dodaj)
+        przyciski_layout.addWidget(self.przycisk_zapisz)
+        przyciski_layout.addWidget(self.przycisk_wczytaj)
+        przyciski_layout.addWidget(self.przycisk_wyczysc)
+        przyciski_layout.addWidget(self.przycisk_wykres)
+
+        self.tabela = QTableWidget()
+        self.tabela.setColumnCount(6)
+        self.tabela.setHorizontalHeaderLabels([
+            "ID",
+            "Identyfikator",
+            "Data",
+            "Licznik",
+            "Ilość",
+            "Koszt"
+        ])
+
+        self.figure = Figure(figsize=(5, 3))
+        self.canvas = FigureCanvas(self.figure)
+
+        glowny_layout.addLayout(formularz_layout)
+        glowny_layout.addLayout(przyciski_layout)
+        glowny_layout.addWidget(self.tabela)
+        glowny_layout.addWidget(self.canvas)
+
+        glowny_widget.setLayout(glowny_layout)
+        self.setCentralWidget(glowny_widget)
+
+    def dodaj_wpis_z_formularza(self):
+        try:
+            id = len(self.manager.wpisy) + 1
+            data = datetime.now().strftime("%Y-%m-%d")
+
+            identyfikator = self.input_identyfikator.text()
+            licznik = int(self.input_licznik.text())
+            ilosc = float(self.input_ilosc.text().replace(",", "."))
+            koszt = float(self.input_koszt.text().replace(",", "."))
+
+            wpis = Wpis(
+                id,
+                identyfikator,
+                data,
+                licznik,
+                ilosc,
+                koszt
+            )
+
+            self.manager.dodaj_wpis(wpis)
+
+            self.odswiez_tabele()
+            self.rysuj_wykres()
+            self.wyczysc_formularz()
+
+        except ValueError:
+            QMessageBox.warning(
+                self,
+                "Błąd",
+                "Licznik musi być liczbą całkowitą, a ilość i koszt liczbami."
+            )
+
+    def odswiez_tabele(self):
+        self.tabela.setRowCount(0)
+
+        for wpis in self.manager.wpisy:
+            row = self.tabela.rowCount()
+            self.tabela.insertRow(row)
+
+            self.tabela.setItem(row, 0, QTableWidgetItem(str(wpis.id)))
+            self.tabela.setItem(row, 1, QTableWidgetItem(wpis.identyfikator))
+            self.tabela.setItem(row, 2, QTableWidgetItem(wpis.data))
+            self.tabela.setItem(row, 3, QTableWidgetItem(str(wpis.licznik)))
+            self.tabela.setItem(row, 4, QTableWidgetItem(str(wpis.ilosc)))
+            self.tabela.setItem(row, 5, QTableWidgetItem(str(wpis.koszt)))
+
+    def wyczysc_formularz(self):
+        self.input_identyfikator.clear()
+        self.input_licznik.clear()
+        self.input_ilosc.clear()
+        self.input_koszt.clear()
+
+    def rysuj_wykres(self):
+        dane = self.manager.pobierz_srednie_wszystkich_obiektow()
+
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+
+        if len(dane) == 0:
+            ax.set_title("Brak danych")
+            ax.text(
+                0.5,
+                0.5,
+                "Dodaj minimum dwa wpisy dla obiektu",
+                ha="center",
+                va="center"
+            )
+        else:
+            ax.bar(dane.keys(), dane.values())
+            ax.set_title("Średnia wartość według obiektu")
+            ax.set_xlabel("Obiekt")
+            ax.set_ylabel("Wartość / 100 jednostek")
+            ax.tick_params(axis="x", rotation=45)
+
+        self.figure.tight_layout()
+        self.canvas.draw()
+
+    def zapisz_json(self):
+        sciezka, _ = QFileDialog.getSaveFileName(
+            self,
+            "Zapisz plik JSON",
+            "",
+            "Pliki JSON (*.json)"
+        )
+
+        if sciezka:
+            self.manager.zapisz_baze(sciezka)
+            QMessageBox.information(self, "Zapisano", "Dane zapisano do pliku.")
+
+    def wczytaj_json(self):
+        sciezka, _ = QFileDialog.getOpenFileName(
+            self,
+            "Wczytaj plik JSON",
+            "",
+            "Pliki JSON (*.json)"
+        )
+
+        if sciezka:
+            self.manager.wczytaj_baze(sciezka)
+            self.odswiez_tabele()
+            self.rysuj_wykres()
+            QMessageBox.information(self, "Wczytano", "Dane wczytano z pliku.")
+
+    def wyczysc_dane(self):
+        self.manager.wyczysc_dane()
+        self.odswiez_tabele()
+        self.rysuj_wykres()
+
+
+app = QApplication(sys.argv)
+window = MainWindow()
+window.show()
+sys.exit(app.exec_())
+```
