@@ -1,0 +1,74 @@
+class Product:
+    _counter = 1
+
+    def __init__(self, nazwa, kategoria, ilosc, cena_sztuka):
+        self.product_id = Product._counter
+        Product._counter += 1
+
+        self.nazwa = nazwa
+        self.kategoria = kategoria
+        self.ilosc = ilosc
+        self.cena_sztuka = cena_sztuka
+
+    def oblicz_wartosc(self):
+        return self.ilosc * self.cena_sztuka
+
+    def __str__(self):
+        return (
+            f"ID: {self.product_id}, "
+            f"nazwa: {self.nazwa}, "
+            f"kategoria: {self.kategoria}, "
+            f"ilość: {self.ilosc}, "
+            f"cena/szt: {self.cena_sztuka} zł, "
+            f"wartość: {self.oblicz_wartosc()} zł"
+        )
+
++-
+class Flight:
+    _counter = 1
+
+    def __init__(self, model_drona, czas_minuty, data):
+        self.flight_id = Flight._counter
+        Flight._counter += 1
+
+        self.model_drona = model_drona
+        self.czas_minuty = czas_minuty
+        self.data = data
+
+    def __str__(self):
+        return f"Lot ID: {self.flight_id}, model: {self.model_drona}, czas: {self.czas_minuty} min, data: {self.data}"
+
+
+class DroneManager:
+    def __init__(self):
+        self.loty = []
+
+    def dodaj_lot(self, model_drona, czas_minuty, data):
+        nowy_lot = Flight(model_drona, czas_minuty, data)
+        self.loty.append(nowy_lot)
+
+    def pobierz_wszystkie_loty(self):
+        return self.loty
+
+    def oblicz_calkowity_nalot(self, model_drona):
+        suma_minut = 0
+
+        for lot in self.loty:
+            if lot.model_drona == model_drona:
+                suma_minut += lot.czas_minuty
+
+        return suma_minut / 60
++-
+class WarehouseManager:
+    def __init__(self):
+        self.produkty = []
+
+    def dodaj_produkt(self, nazwa, kategoria, ilosc, cena_sztuka):
+        nowy_produkt = Product(nazwa, kategoria, ilosc, cena_sztuka)
+        self.produkty.append(nowy_produkt)
+
+    def pobierz_wszystkie_produkty(self):
+        return self.produkty
+
+    def oblicz_wartosc_kategorii(self, kategoria):
+        suma = 0
