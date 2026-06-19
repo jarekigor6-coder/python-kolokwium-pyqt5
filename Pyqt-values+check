@@ -1,0 +1,96 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+
+class Product:
+    counter = 1
+
+    def __init__(self, name, category, quantity, price):
+        self.product_id = Product.counter
+        Product.counter += 1
+
+        self.name = name
+        self.category = category
+        self.quantity = quantity
+        self.price = price
+
+    def total_value(self):
+        return self.quantity * self.price
+
+
+class WarehouseManager:
+    def __init__(self):
+        self.products = []
+
+    def add_product(self, name, category, quantity, price):
+        product = Product(name, category, quantity, price)
+        self.products.append(product)
+
+    def remove_product(self, product_id):
+        for product in self.products:
+            if product.product_id == product_id:
+                self.products.remove(product)
+                return True
+        return False
+
+    def calculate_all_value(self):
+        total = 0
+        for product in self.products:
+            total += product.total_value()
+        return total
+
+    def calculate_category_value(self, category):
+        total = 0
+        for product in self.products:
+            if product.category == category:
+                total += product.total_value()
+        return total
++-
+ def pobierz_slownik_nalotu(self):
+        slownik = {}
+
+        for lot in self.loty:
+            if lot.model_drona not in slownik:
+                slownik[lot.model_drona] = 0
+
+            slownik[lot.model_drona] += lot.czas_minuty
+
+        for model in slownik:
+            slownik[model] = slownik[model] / 60
+
+        return slownik
+
+
+if __name__ == "__main__":
+    manager = DroneManager()
+
+    manager.dodaj_lot("DJI Mavic 3", 120, "2026-06-19")
+    manager.dodaj_lot("DJI Mavic 3", 90, "2026-06-20")
+    manager.dodaj_lot("Autel Evo II", 60, "2026-06-21")
+    manager.dodaj_lot("Autel Evo II", 150, "2026-06-22")
+
+    print("WSZYSTKIE LOTY:")
+    for lot in manager.pobierz_wszystkie_loty():
+        print(lot)
+
+    print("\nCAŁKOWITY NALOT DLA DJI MAVIC 3:")
+    print(f"DJI Mavic 3: {manager.oblicz_calkowity_nalot('DJI Mavic 3')} godziny")
+
+    print("\nRAPORT NALOTU WSZYSTKICH DRONÓW:")
+    raport = manager.pobierz_slownik_nalotu()
+
+    for model, godziny in raport.items():
+        print(f"{model}: {godziny} godziny")
++-
+    def category_report(self):
+        report = {}
+
+        for product in self.products:
+            if product.category not in report:
+                report[product.category] = 0
+
+            report[product.category] += product.total_value()
+
+        return report
+
+
